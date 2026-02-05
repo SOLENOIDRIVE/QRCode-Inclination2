@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRコード回転速度測定システム 解体新書</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+            line-height: 1.8;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        h2 {
+            font-size: 1.8em;
+            margin-top: 40px;
+            border-left: 5px solid #0056b3;
+            padding-left: 15px;
+            background-color: #eef;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        h3 {
+            font-size: 1.4em;
+            margin-top: 30px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        p {
+            margin-bottom: 1.5em;
+            text-align: justify;
+        }
+        .abstract {
+            font-style: italic;
+            margin: 40px 0;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .equation {
+            text-align: center;
+            margin: 20px 0;
+            font-family: "Times New Roman", serif;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            background-color: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .figure {
+            text-align: center;
+            margin: 30px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .author {
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 1.2em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>QRコード回転速度測定システム 解体新書</h1>
+    <div class="author">
+        著：GitHub Copilot<br>
+        日付：2025年11月24日
+    </div>
+
+    <div class="abstract">
+        <strong>要旨</strong><br>
+        本稿では、タイヤ等の回転体に貼付されたQRコードを単眼カメラで撮影し、その画像解析を通じて回転速度（RPM）、周速度、および垂直変位をリアルタイムで計測するシステムの技術的詳細について論じる。本システムは、コンピュータビジョンライブラリOpenCVとQRコード解析ライブラリpyzbarを基盤とし、幾何学的演算による角度推定と時系列データ処理による速度算出を行う。本稿は、その数理モデルと実装アーキテクチャを体系的に解説するものである。
+    </div>
+
+    <h2>1. 序論</h2>
+    <p>
+        非接触での回転体の挙動解析は、産業機械のモニタリングや車両のダイナミクス解析において重要な課題である。従来、ロータリーエンコーダ等の接触式センサや、高価なレーザー変位計が用いられてきたが、設置の煩雑さやコストが障壁となる場合がある。本システムは、汎用的なWebカメラと印刷されたQRコードのみを用いることで、低コストかつ簡便に回転速度および上下振動（サスペンション挙動等）を計測する手法を提案するものである。
+    </p>
+
+    <h2>2. システムアーキテクチャ</h2>
+    <p>
+        本システムは、Python言語によって実装されており、主に以下の3つのモジュールによって構成される。
+    </p>
+    <ul>
+        <li><strong>QR Rotation Detector</strong>: 画像フレームからQRコードを検出し、その幾何学的特徴から回転角を算出する。</li>
+        <li><strong>Speed Calculator</strong>: 算出された角速度とタイヤ径パラメータに基づき、実空間での周速度を導出する。</li>
+        <li><strong>Tire Tracker</strong>: QRコードの中心座標を追跡し、画像空間上の変位を実空間の変位（mm）に変換する。</li>
+    </ul>
+
+    <h2>3. 数理モデルとアルゴリズム</h2>
+
+    <h3>3.1 QRコードによる角度推定</h3>
+    <p>
+        QRコードは正方形の幾何学的特徴を持つ。検出されたQRコードの4頂点のうち、ファインダパターン（切り出しシンボル）の位置関係を利用して回転角を特定する。
+        画像平面上のQRコードの左上頂点を \(P_{TL}(x_{TL}, y_{TL})\)、右上頂点を \(P_{TR}(x_{TR}, y_{TR})\) と定義するとき、水平軸に対する回転角 \(\theta\) は逆正接関数を用いて次式で表される。
+    </p>
+    <div class="equation">
+        $$ \theta = \arctan2(y_{TR} - y_{TL}, x_{TR} - x_{TL}) \times \frac{180}{\pi} $$
+    </div>
+    <p>
+        ここで、\(\theta\) は度数法（degree）で表現され、範囲は \((-180, 180]\) である。
+    </p>
+
+    <h3>3.2 角速度およびRPMの算出</h3>
+    <p>
+        時刻 \(t\) における角度を \(\theta_t\)、直前のフレーム（時刻 \(t-1\)）における角度を \(\theta_{t-1}\) とする。フレーム間の角度変位 \(\Delta \theta\) は単純差分では不連続点（180度と-180度の境界）で誤った値となるため、以下の正規化処理を行う。
+    </p>
+    <div class="equation">
+        $$ \Delta \theta_{raw} = \theta_t - \theta_{t-1} $$
+    </div>
+    <div class="equation">
+        $$ \Delta \theta = \begin{cases} 
+        \Delta \theta_{raw} - 360 & (\Delta \theta_{raw} > 180) \\
+        \Delta \theta_{raw} + 360 & (\Delta \theta_{raw} < -180) \\
+        \Delta \theta_{raw} & (\text{otherwise})
+        \end{cases} $$
+    </div>
+    <p>
+        これにより、最短経路での回転変位が求まる。フレーム間の時間差を \(\Delta t\) とすると、瞬時角速度 \(\omega\)（deg/s）および回転数 \(N\)（RPM）は次式で算出される。
+    </p>
+    <div class="equation">
+        $$ \omega = \frac{\Delta \theta}{\Delta t} $$
+    </div>
+    <div class="equation">
+        $$ N = \frac{\omega}{360} \times 60 = \frac{\Delta \theta}{6 \Delta t} $$
+    </div>
+    <p>
+        本システムでは、測定ノイズを低減するため、直近 \(k\) フレーム（デフォルトでは10フレーム）の移動平均を用いて平滑化を行っている。
+    </p>
+
+    <h3>3.3 周速度への変換</h3>
+    <p>
+        タイヤの直径を \(D\) (mm) とするとき、タイヤの円周長 \(C\) (m) は以下の通りである。
+    </p>
+    <div class="equation">
+        $$ C = \frac{\pi D}{1000} $$
+    </div>
+    <p>
+        これより、周速度 \(v\) (m/s) は回転数 \(N\) (RPM) を用いて次のように導出される。
+    </p>
+    <div class="equation">
+        $$ v = \frac{C \times N}{60} $$
+    </div>
+
+    <h3>3.4 垂直変位の計測とキャリブレーション</h3>
+    <p>
+        タイヤの上下動（バウンシング）を計測するため、QRコードの中心座標 \(P_c(x_c, y_c)\) の垂直成分 \(y_c\) を追跡する。
+        初期位置を \(y_{init}\) としたとき、画像上の変位 \(\Delta y_{px}\) は以下の通りである。
+    </p>
+    <div class="equation">
+        $$ \Delta y_{px} = y_{init} - y_c $$
+    </div>
+    <p>
+        ここで、画像座標系は下向きが正であるため、上向きの変位を正とするために符号を反転させている（あるいは \(y_{init} - y_c\) と定義する）。
+        実空間での変位 \(\Delta y_{mm}\) を得るためには、ピクセル対ミリメートル比率 \(R_{pm}\) (mm/pixel) が必要となる。これはキャリブレーション工程において、既知の実距離 \(L_{mm}\) と画像上の距離 \(L_{px}\) から算出される。
+    </p>
+    <div class="equation">
+        $$ R_{pm} = \frac{L_{mm}}{L_{px}} $$
+    </div>
+    <div class="equation">
+        $$ \Delta y_{mm} = \Delta y_{px} \times R_{pm} $$
+    </div>
+
+    <h2>4. 実装詳細</h2>
+
+    <h3>4.1 クラス設計</h3>
+    <p>
+        システムはオブジェクト指向設計に基づき、責務を分離している。
+    </p>
+    <table>
+        <tr>
+            <th>クラス名</th>
+            <th>役割</th>
+            <th>主要メソッド</th>
+        </tr>
+        <tr>
+            <td><code>QRCodeRotationDetector</code></td>
+            <td>QR検出と回転角計算</td>
+            <td><code>detect_qr_code()</code>, <code>detect_rotation()</code></td>
+        </tr>
+        <tr>
+            <td><code>SpeedCalculator</code></td>
+            <td>物理単位への変換</td>
+            <td><code>rpm_to_ms()</code>, <code>calculate_speed()</code></td>
+        </tr>
+        <tr>
+            <td><code>TireTracker</code></td>
+            <td>位置追跡と変位計算</td>
+            <td><code>track_vertical_movement()</code>, <code>calibrate_pixel_to_mm()</code></td>
+        </tr>
+        <tr>
+            <td><code>QRCodeSpeedMeasurementSystem</code></td>
+            <td>全体制御とUI描画</td>
+            <td><code>run()</code>, <code>draw_ui()</code></td>
+        </tr>
+    </table>
+
+    <h3>4.2 異常値処理とフィルタリング</h3>
+    <p>
+        画像処理においては、照明条件の変化やブレにより誤検出が発生する可能性がある。本システムでは以下のロジックにより堅牢性を確保している。
+    </p>
+    <ul>
+        <li><strong>角度変化の閾値処理</strong>: 1フレームあたり90度を超える急激な角度変化は物理的にあり得ないノイズとみなし、無視する。</li>
+        <li><strong>RPMの移動平均</strong>: 瞬時値のばらつきを抑制するため、履歴バッファを用いた移動平均フィルタを適用する。</li>
+        <li><strong>検出ミスの補間</strong>: QRコードの検出に失敗した場合、一定フレーム数までは前回の有効なRPM値を保持し、計測の途切れを防ぐ。</li>
+    </ul>
+
+    <h2>5. 結論</h2>
+    <p>
+        本システムは、単眼カメラ映像からのQRコード解析という簡素な構成でありながら、幾何学的演算と時系列フィルタリングを組み合わせることで、回転体の運動パラメータ（回転速度、周速度、垂直変位）を定量的に計測することを可能にした。特に、非接触である点は、回転体に物理的な負荷や配線の制約を与えないという点で、実験計測において大きな利点となる。
+    </p>
+
+</body>
+</html>

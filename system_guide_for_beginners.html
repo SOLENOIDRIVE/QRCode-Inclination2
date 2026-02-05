@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRコードを用いた回転体計測システムの基礎と原理</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #f5f7fa;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 40px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: bold;
+        }
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-top: 15px;
+            font-weight: 300;
+        }
+        section {
+            background: white;
+            padding: 40px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-left: 5px solid #3498db;
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-top: 0;
+            font-size: 1.6em;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+            font-size: 1.3em;
+            border-left: 4px solid #bdc3c7;
+            padding-left: 10px;
+        }
+        .analogy {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .analogy h3 {
+            border-left: none;
+            padding-left: 0;
+            margin-top: 0;
+            color: #e67e22;
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed #eee;
+        }
+        .step:last-child {
+            border-bottom: none;
+        }
+        .step-number {
+            background-color: #3498db;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex-grow: 1;
+        }
+        .qa-box {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .question {
+            background-color: #e8f4f8;
+            padding: 15px;
+            font-weight: bold;
+            color: #2980b9;
+            border-bottom: 1px solid #ddd;
+        }
+        .answer {
+            padding: 15px;
+            color: #555;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #95a5a6;
+            font-size: 0.9em;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>QRコードを用いた回転体計測システムの基礎と原理</h1>
+        <div class="subtitle">単眼カメラによる非接触センシング技術の提案</div>
+    </header>
+
+    <section>
+        <h2>1. 研究の背景と目的</h2>
+        <p>
+            本システムは、<strong>「汎用的なWebカメラとQRコードのみを用いて、回転体の挙動（回転速度・垂直変位）を非接触で計測する」</strong>ことを目的としています。
+        </p>
+        <p>
+            従来の計測手法（ロータリーエンコーダやレーザー変位計）は高精度ですが、高価であり、設置に物理的な制約が伴います。本手法は、印刷したQRコードを対象物に貼付するだけで計測が可能となるため、低コストかつ簡便な実験環境の構築に寄与します。
+        </p>
+    </section>
+
+    <section>
+        <h2>2. 測定原理とアルゴリズム</h2>
+        
+        <div class="analogy">
+            <h3><span style="font-size: 1.2em;">💡</span> 原理の直感的理解</h3>
+            <p>
+                QRコードは幾何学的に厳密な正方形であり、3つの隅に配置された「ファインダパターン」によって絶対的な向き（オリエンテーション）が定義されています。<br>
+                本システムは、この特徴を利用してQRコードを「回転計の針」として扱います。フレームごとの角度変化を追跡することで、角速度を算出します。
+            </p>
+        </div>
+
+        <h3>処理フロー</h3>
+        
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>特徴点検出 (Detection)</strong><br>
+                入力画像からQRコードのファインダパターンを検出し、4頂点の座標を特定します。これには画像処理ライブラリ（OpenCV/pyzbar）を使用します。
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>角度推定 (Angle Estimation)</strong><br>
+                特定された頂点座標の幾何学的関係から、水平軸に対する回転角を算出します。
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>時系列解析 (Time-Series Analysis)</strong><br>
+                フレーム間の角度差分と経過時間から角速度（RPM）を算出します。また、タイヤ径パラメータを用いて周速度へ変換します。
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>3. 数理モデル</h2>
+        <p>
+            本システムにおける計測ロジックを数式を用いて説明します。
+        </p>
+
+        <h3>3.1 角度算出モデル</h3>
+        <p>
+            QRコードの特定のエッジ（例：上辺）の両端座標を \((x_1, y_1), (x_2, y_2)\) とするとき、回転角 \(\theta\) は逆正接関数を用いて以下のように求められます。
+        </p>
+        <div style="text-align: center; margin: 20px 0; font-size: 1.2em;">
+            $$ \theta = \arctan\left(\frac{y_2 - y_1}{x_2 - x_1}\right) $$
+        </div>
+        <p>
+            これにより、画像平面上での絶対的な角度（-180度〜180度）が一意に定まります。
+        </p>
+
+        <h3>3.2 回転速度（RPM）の導出</h3>
+        <p>
+            単位時間あたりの角度変化量から回転数（RPM: Revolutions Per Minute）を算出します。
+        </p>
+        <div style="text-align: center; margin: 20px 0; font-size: 1.2em;">
+            $$ \text{RPM} = \frac{\Delta \theta}{360} \times \frac{60}{\Delta t} $$
+        </div>
+        <ul>
+            <li>\(\Delta \theta\)：フレーム間の角度変位（deg）</li>
+            <li>\(\Delta t\)：フレーム間の経過時間（sec）</li>
+        </ul>
+        <p>
+            ※実際の実装では、角度の不連続性（180度と-180度の境界）を補正する処理や、ノイズ低減のための移動平均フィルタが含まれます。
+        </p>
+
+        <h3>3.3 周速度への変換</h3>
+        <p>
+            タイヤ直径 \(D\) (mm) を用いて、回転運動を並進運動の速度 \(v\) (m/s) に変換します。
+        </p>
+        <div style="text-align: center; margin: 20px 0; font-size: 1.2em;">
+            $$ v = \frac{\pi D \times \text{RPM}}{60 \times 1000} $$
+        </div>
+    </section>
+
+    <section>
+        <h2>4. 垂直変位計測（サスペンション挙動解析）</h2>
+        <p>
+            回転計測と並行して、QRコードの中心座標 \((C_x, C_y)\) の垂直成分の変動を追跡します。これにより、タイヤのバウンシング（上下動）を定量化します。
+        </p>
+        <div class="analogy">
+            <h3>📏 空間スケーリング（キャリブレーション）</h3>
+            <p>
+                画像上の単位は「ピクセル」であるため、実空間の単位「ミリメートル」への変換が必要です。<br>
+                既知の長さ \(L_{real}\) (mm) を持つ物体を撮影し、その画像上の長さ \(L_{pixel}\) (px) との比率 \(R = L_{real} / L_{pixel}\) を係数として用います。
+            </p>
+        </div>
+    </section>
+
+    <section>
+        <h2>5. QRコード方式の優位性</h2>
+        <ul>
+            <li><strong>ロバスト性：</strong> QRコードは誤り訂正機能や明確なファインダパターンを持つため、単純なカラードットマーカーと比較して、照明変化や背景ノイズに対して強い検出耐性を持ちます。</li>
+            <li><strong>絶対角度の取得：</strong> 円形のマーカーでは回転の「量」は測れても「絶対的な向き」の特定が困難ですが、QRコードは形状の非対称性から絶対角度を瞬時に特定可能です。</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>6. 学会発表における想定質問と回答</h2>
+        <p>発表時に予想される質問（FAQ）とその回答例をまとめました。</p>
+
+        <div class="qa-box">
+            <div class="question">Q1. 高速回転時の精度はどうなりますか？（モーションブラーの影響は？）</div>
+            <div class="answer">
+                <strong>A.</strong> カメラのシャッタースピードとフレームレートに依存します。回転が速すぎるとQRコードがブレて（モーションブラー）、検出不能になる可能性があります。<br>
+                対策として、シャッタースピードを高速に設定し、十分な照明を確保することが推奨されます。現状のシステムは低〜中速域（数100 RPM程度まで）での計測を想定しています。
+            </div>
+        </div>
+
+        <div class="qa-box">
+            <div class="question">Q2. リアルタイム性は確保できていますか？</div>
+            <div class="answer">
+                <strong>A.</strong> はい。QRコードの検出処理は比較的軽量であり、一般的なノートPCでも30fps〜60fps程度での処理が可能です。<br>
+                ただし、解像度を上げすぎると処理負荷が高まるため、計測精度と処理速度のトレードオフを考慮して解像度を選定する必要があります。
+            </div>
+        </div>
+
+        <div class="qa-box">
+            <div class="question">Q3. なぜARマーカー（ArUcoなど）ではなくQRコードなのですか？</div>
+            <div class="answer">
+                <strong>A.</strong> ArUcoマーカーの方が画像処理的には高速ですが、QRコードは「入手性の良さ（誰でも簡単に生成・印刷できる）」と「汎用ライブラリの豊富さ」において利点があります。<br>
+                また、将来的にQRコード自体に個体識別情報（タイヤIDなど）を埋め込み、トレーサビリティ管理に活用できる拡張性も考慮して採用しました。
+            </div>
+        </div>
+
+        <div class="qa-box">
+            <div class="question">Q4. カメラと対象物の距離が変わると誤差が出ませんか？</div>
+            <div class="answer">
+                <strong>A.</strong> はい、単眼カメラを使用しているため、奥行き方向（Z軸）の移動はスケール変化として誤検知される可能性があります。<br>
+                本実験では、カメラとタイヤの距離は一定であると仮定しています。厳密な計測が必要な場合は、ToFセンサの併用やステレオカメラ化による奥行き補正が今後の課題となります。
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        &copy; 2025 GitHub Copilot - QR Code Speed Measurement System Technical Overview
+    </footer>
+
+</body>
+</html>
